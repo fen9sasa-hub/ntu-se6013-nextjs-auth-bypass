@@ -87,6 +87,8 @@ The optional Python virtual environment is local tooling. Keep it out of Git and
 
 [Shared contract](../docs/contracts.md) fixes the current paths, marker, target IDs and proposed scenario/evidence semantics. M2 reviews the setup; M3 co-reviews the integration boundary. Shared-file changes need coordination, not a second copied shell.
 
+Target identity is fixed at build time. `LAB_TARGET_ID` and `LAB_PROFILE` in `app/next.config.mjs` set the target ID, base path, cookie name and health profile; with no build args, this is the `vulnerable` target exactly as before. M4 builds its targets from this same source; see [m4-remediation](../m4-remediation/README.md). The health route also now reports not-ready when the password or signing secret is shorter than the handlers accept. This parameterisation (31 October) has been re-checked in Docker: the images built, the merged lab started healthy, and `node deploy/check.mjs` passed 8 of 8 against it (see [M4's receipt](../m4-remediation/VERIFICATION.md)). The Playwright browser checks in this directory's [VERIFICATION.md](VERIFICATION.md) predate it and were not rerun. M1's own review of the change is still pending.
+
 ## Session and environment limits
 
 Sessions are signed bearer tokens, not an enterprise identity system. Logout deletes the current browser's cookie; a previously copied token remains valid until its 15-minute expiry or target signing-key rotation. Session revocation/persistence and per-user access roles are not claimed. A new target requires its own cookie name/path and signing secret. Never share the operator or target credentials with another profile.
