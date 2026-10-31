@@ -28,7 +28,9 @@ The identity check tests completed fields and basic identifier shape. It does no
 
 M1 is available in [m1-lab/](m1-lab/README.md): the Next.js 14.2.24 example application, independent operator-gated panel, isolated Docker Compose package and setup/shutdown instructions. The shared M3/M4 interface is in [docs/contracts.md](docs/contracts.md).
 
-Only the existing M1 contribution was imported. Other members' code, private environment files and the old repository history are not included. The M3 runner, M4 defence targets and M5 evaluation remain separate work.
+M4 is in [m4-remediation/](m4-remediation/README.md): the Next.js 14.2.25 `patched` target and the separate `header-filter` and `server-auth` defence profiles, built from M1's application source, with regression and profile-isolation checks.
+
+Apart from M4's work in m4-remediation/, only the existing M1 contribution was imported. Other members' earlier code, private environment files and the old repository history are not included. The M3 runner and M5 evaluation remain separate work.
 
 Start from the repository root:
 

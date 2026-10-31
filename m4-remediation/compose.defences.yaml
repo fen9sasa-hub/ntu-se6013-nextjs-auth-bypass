@@ -1,0 +1,164 @@
+# M4 targets, added to M1's lab. From m1-lab/, after `node deploy/init-env.mjs` and `node ../m4-remediation/init-env.mjs`:
+#   docker compose -f compose.yaml -f ../m4-remediation/compose.defences.yaml up --build -d --wait
+# Compose resolves relative paths in every file against m1-lab/ (the first file), hence the ../ prefixes.
+# No M4 service publishes a host port. Each target has its own password, signing secret and cookie.
+x-target: &target
+  networks: [lab]
+  read_only: true
+  tmpfs: ["/tmp:size=32m,mode=1777"]
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  mem_limit: 512m
+  cpus: 1.0
+  pids_limit: 128
+  init: true
+  restart: "no"
+
+services:
+  patched:
+    <<: *target
+    build:
+      context: ..
+      dockerfile: m4-remediation/target.Dockerfile
+      args: {M4_CHANGE: patched, LAB_TARGET_ID: patched, LAB_PROFILE: middleware-only}
+    environment:
+      LAB_USER: ${LAB_USER:?Generate the local .env first}
+      LAB_PASSWORD: ${PATCHED_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+      LAB_SESSION_SECRET: ${PATCHED_SESSION_SECRET:?Run node ../m4-remediation/init-env.mjs}
+      LAB_PUBLIC_ORIGIN: ${LAB_PUBLIC_ORIGIN:-http://127.0.0.1:4317}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/lab/patched/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
+
+  # Unchanged 14.2.24 application, reachable only through the header-filter boundary.
+  header-filter-app:
+    <<: *target
+    networks: [header-filter-backend]
+    build:
+      context: ..
+      dockerfile: m4-remediation/target.Dockerfile
+      args: {M4_CHANGE: header-filter, LAB_TARGET_ID: header-filter, LAB_PROFILE: header-filter}
+    environment:
+      LAB_USER: ${LAB_USER:?Generate the local .env first}
+      LAB_PASSWORD: ${HEADER_FILTER_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+      LAB_SESSION_SECRET: ${HEADER_FILTER_SESSION_SECRET:?Run node ../m4-remediation/init-env.mjs}
+      LAB_PUBLIC_ORIGIN: ${LAB_PUBLIC_ORIGIN:-http://127.0.0.1:4317}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/lab/header-filter/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
+
+  # The `header-filter` target address. Rejects the internal header, relays everything else unchanged.
+  header-filter:
+    build:
+      context: ../m4-remediation/header-filter
+    environment:
+      UPSTREAM_ORIGIN: http://header-filter-app:3000
+      PORT: "3000"
+    networks: [lab, header-filter-backend]
+    depends_on:
+      header-filter-app:
+        condition: service_healthy
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
+    init: true
+    restart: "no"
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/lab/header-filter/api/health').then(r=>process.exit(r.ok&&r.headers.get('x-lab-boundary')==='header-filter'?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+
+  server-auth:
+    <<: *target
+    build:
+      context: ..
+      dockerfile: m4-remediation/target.Dockerfile
+      args: {M4_CHANGE: server-auth, LAB_TARGET_ID: server-auth, LAB_PROFILE: server-auth}
+    environment:
+      LAB_USER: ${LAB_USER:?Generate the local .env first}
+      LAB_PASSWORD: ${SERVER_AUTH_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+      LAB_SESSION_SECRET: ${SERVER_AUTH_SESSION_SECRET:?Run node ../m4-remediation/init-env.mjs}
+      LAB_PUBLIC_ORIGIN: ${LAB_PUBLIC_ORIGIN:-http://127.0.0.1:4317}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/lab/server-auth/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
+
+  # Test-only ablation: server-auth with middleware removed, reachable only by m4-check. Never a lab target.
+  server-auth-guard-only:
+    <<: *target
+    profiles: [check]
+    networks: [m4-check]
+    build:
+      context: ..
+      dockerfile: m4-remediation/target.Dockerfile
+      args: {M4_CHANGE: server-auth-guard-only, LAB_TARGET_ID: server-auth, LAB_PROFILE: server-auth-guard-only}
+    environment:
+      LAB_USER: ${LAB_USER:?Generate the local .env first}
+      LAB_PASSWORD: ${SERVER_AUTH_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+      LAB_SESSION_SECRET: ${SERVER_AUTH_SESSION_SECRET:?Run node ../m4-remediation/init-env.mjs}
+      LAB_PUBLIC_ORIGIN: ${LAB_PUBLIC_ORIGIN:-http://127.0.0.1:4317}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/lab/server-auth/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
+
+  # Runs m4-remediation/tests/targets.test.mjs against every target over the private networks.
+  m4-check:
+    profiles: [check]
+    build:
+      context: ..
+      dockerfile: m4-remediation/check.Dockerfile
+    environment:
+      M4_LIVE: "1"
+      LAB_PUBLIC_ORIGIN: ${LAB_PUBLIC_ORIGIN:-http://127.0.0.1:4317}
+      LAB_USER: ${LAB_USER:?Generate the local .env first}
+      LAB_PASSWORD: ${LAB_PASSWORD:?Generate the local .env first}
+      PATCHED_PASSWORD: ${PATCHED_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+      HEADER_FILTER_PASSWORD: ${HEADER_FILTER_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+      SERVER_AUTH_PASSWORD: ${SERVER_AUTH_PASSWORD:?Run node ../m4-remediation/init-env.mjs}
+    networks: [lab, m4-check]
+    depends_on:
+      vulnerable: {condition: service_healthy}
+      patched: {condition: service_healthy}
+      header-filter: {condition: service_healthy}
+      server-auth: {condition: service_healthy}
+      server-auth-guard-only: {condition: service_healthy}
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    init: true
+    restart: "no"
+
+networks:
+  header-filter-backend:
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+  m4-check:
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
