@@ -1,7 +1,8 @@
 import { issueSession, verifySession } from '../../shared/session.mjs';
-export const TARGET = 'vulnerable';
-export const BASE = '/lab/vulnerable';
-export const COOKIE = 'lab_vulnerable_session';
+// Inlined at build time from next.config.mjs `env`, so middleware, pages and handlers agree.
+export const TARGET = process.env.LAB_TARGET_ID;
+export const BASE = `/lab/${TARGET}`;
+export const COOKIE = `lab_${TARGET.replaceAll('-', '_')}_session`;
 export function required(name, minimum = 1) {
   const value = process.env[name];
   if (!value || value.length < minimum) throw new Error(`Missing or short ${name}`);

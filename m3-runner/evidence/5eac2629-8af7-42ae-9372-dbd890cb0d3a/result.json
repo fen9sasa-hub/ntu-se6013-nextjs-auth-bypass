@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1",
+  "run_id": "5eac2629-8af7-42ae-9372-dbd890cb0d3a",
+  "started_at": "2026-11-06T15:32:55.294960+00:00",
+  "source_commit": null,
+  "target": {
+    "id": "vulnerable",
+    "base_url": "http://vulnerable:3000",
+    "observed_version": "14.2.24",
+    "profile": "middleware-only",
+    "ready": true
+  },
+  "scenario": "valid-session",
+  "expected": "protected-content-returned",
+  "request": {
+    "method": "GET",
+    "path": "/lab/vulnerable/dashboard",
+    "redacted_headers": {}
+  },
+  "response": {
+    "status": 307,
+    "redirect_location": "http://127.0.0.1:4317/lab/vulnerable/login",
+    "escaped_body": "http://127.0.0.1:4317/lab/vulnerable/login",
+    "truncated": false
+  },
+  "observed": "denied",
+  "elapsed_ms": 2.91,
+  "error": null,
+  "logs": null
+}
