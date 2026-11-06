@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/.next
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+**/artifacts
+**/__pycache__
+**/.venv
+**/.browser-venv
+**/*.log
